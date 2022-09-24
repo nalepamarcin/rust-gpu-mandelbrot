@@ -2,17 +2,17 @@
 struct Parameters {
     img_size_px: u16,
     workgroup_size: u16,
-    max_iter: u8,
+    max_iter: u16,
     limits: [f32; 4]
 }
 
 
 fn get_params() -> Parameters {
     Parameters {
-        img_size_px: 96,
+        img_size_px: 8192,
         workgroup_size: 16,
-        max_iter: 32,
-        limits: [-2.0, 2.0, -2.0, 2.0]
+        max_iter: 256,
+        limits: [-2.2, 0.8, -1.5, 1.5]
     }
 }
 
@@ -20,15 +20,28 @@ fn get_params() -> Parameters {
 async fn run() {
     let params = get_params();
 
+    let start_time = std::time::Instant::now();
     let steps = execute_gpu(&params).await.unwrap();
+    tracing::info!("Computing time: {:?}", start_time.elapsed());
 
-    let img_size = params.img_size_px as usize;
+    let img_size = params.img_size_px as u32;
+    let mut imgbuf = image::GrayImage::new(img_size, img_size);
+
+    let start_time = std::time::Instant::now();
     for y in 0..img_size {
         for x in 0..img_size {
-            print!("{}  ", if steps[img_size * y + x] == 0 {"*"} else {" "});
+            let v = steps[(img_size * y + x) as usize] as u8;
+            if v != 0 {
+                let v = 255.0f32 * (v as f32 / params.max_iter as f32);
+                imgbuf.get_pixel_mut(x, y).0[0] = v as u8;
+            }
         }
-        println!();
     }
+    tracing::info!("Processing time: {:?}", start_time.elapsed());
+
+    let start_time = std::time::Instant::now();
+    imgbuf.save("fractal.png").unwrap();
+    tracing::info!("Saving time: {:?}", start_time.elapsed());
 }
 
 
@@ -38,8 +51,16 @@ async fn execute_gpu(params: &Parameters) -> Option<Vec<u32>> {
 
     // `request_adapter` instantiates the general connection to the GPU
     let adapter = instance
-        .request_adapter(&wgpu::RequestAdapterOptions::default())
+        .request_adapter(&wgpu::RequestAdapterOptions {
+            power_preference: wgpu::PowerPreference::HighPerformance,
+            force_fallback_adapter: false,
+            compatible_surface: None
+        })
         .await?;
+
+    let mut requested_limits = wgpu::Limits::default();
+    // requesting buffer binds of 256MB
+    requested_limits.max_storage_buffer_binding_size = 2 << 28;
 
     // `request_device` instantiates the feature specific connection to the GPU, defining some parameters,
     //  `features` being the available features.
@@ -48,7 +69,7 @@ async fn execute_gpu(params: &Parameters) -> Option<Vec<u32>> {
             &wgpu::DeviceDescriptor {
                 label: None,
                 features: wgpu::Features::empty(),
-                limits: wgpu::Limits::downlevel_defaults(),
+                limits: requested_limits,
             },
             None,
         )
