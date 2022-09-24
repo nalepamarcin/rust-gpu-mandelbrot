@@ -9,10 +9,10 @@ struct Parameters {
 
 fn get_params() -> Parameters {
     Parameters {
-        img_size_px: 32,
+        img_size_px: 96,
         workgroup_size: 16,
-        max_iter: 8,
-        limits: [-1.1, 1.1, -1.1, 1.1]
+        max_iter: 32,
+        limits: [-2.0, 2.0, -2.0, 2.0]
     }
 }
 
@@ -25,7 +25,7 @@ async fn run() {
     let img_size = params.img_size_px as usize;
     for y in 0..img_size {
         for x in 0..img_size {
-            print!("{}  ", if steps[img_size * y + x] == 1 {"*"} else {" "});
+            print!("{}  ", if steps[img_size * y + x] == 0 {"*"} else {" "});
         }
         println!();
     }
