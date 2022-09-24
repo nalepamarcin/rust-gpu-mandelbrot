@@ -633,7 +633,6 @@ dependencies = [
 name = "mandelbrot"
 version = "0.1.0"
 dependencies = [
- "bytemuck",
  "futures",
  "image",
  "pollster",

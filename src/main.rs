@@ -45,7 +45,7 @@ async fn run() {
 }
 
 
-async fn execute_gpu(params: &Parameters) -> Option<Vec<u32>> {
+async fn execute_gpu(params: &Parameters) -> Option<Vec<u8>> {
     // Instantiates instance of WebGPU
     let instance = wgpu::Instance::new(wgpu::Backends::all());
 
@@ -86,14 +86,17 @@ async fn execute_gpu_inner(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
     params: &Parameters
-) -> Option<Vec<u32>> {
+) -> Option<Vec<u8>> {
+    // processing must be divided into full workgroups
     assert_eq!(params.img_size_px % params.workgroup_size, 0);
     let no_groups = params.img_size_px / params.workgroup_size;
+    // one shader invocation processes 4 consecutive pixels (due to stupid wgsl limitation of working only on u32)
+    assert_eq!(no_groups % 4, 0);
 
     let mut shader_src = include_str!("mandelbrot.wgsl").to_string();
     shader_src = shader_src.replace("{{wg_size}}", &*format!("{}u", params.workgroup_size));
     shader_src = shader_src.replace("{{max_iter}}", &*format!("{}u", params.max_iter));
-    shader_src = shader_src.replace("{{row_stride}}", &*format!("{}u", params.img_size_px));
+    shader_src = shader_src.replace("{{row_stride}}", &*format!("{}u", params.img_size_px / 4));
     shader_src = shader_src.replace("{{img_size}}", &*format!("{}.0f", params.img_size_px));
 
     shader_src = shader_src.replace("{{img_min_x}}", &*format!("{}f", params.limits[0]));
@@ -107,7 +110,7 @@ async fn execute_gpu_inner(
         source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::from(shader_src)),
     });
 
-    let buffer_size: usize = std::mem::size_of::<u32>() * params.img_size_px as usize * params.img_size_px as usize;
+    let buffer_size: usize = std::mem::size_of::<u8>() * params.img_size_px as usize * params.img_size_px as usize;
     let storage_buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: None,
         size: buffer_size as wgpu::BufferAddress,
@@ -139,7 +142,7 @@ async fn execute_gpu_inner(
         cpass.set_pipeline(&compute_pipeline);
         cpass.set_bind_group(0, &bind_group, &[]);
         cpass.insert_debug_marker("compute collatz iterations");
-        cpass.dispatch_workgroups(no_groups as u32, no_groups as u32, 1); // Number of cells to run, the (x,y,z) size of item being processed
+        cpass.dispatch_workgroups((no_groups / 4) as u32, no_groups as u32, 1); // Number of cells to run, the (x,y,z) size of item being processed
     }
 
     queue.submit(Some(encoder.finish()));
@@ -152,7 +155,7 @@ async fn execute_gpu_inner(
 
     if let Ok(()) = receiver.await.unwrap() {
         let data = buffer_slice.get_mapped_range();
-        let result = bytemuck::cast_slice(&data).to_vec();
+        let result = data.to_vec();
 
         // With the current interface, we have to make sure all mapped views are
         // dropped before we unmap the buffer.
