@@ -19,33 +19,66 @@ fn get_params() -> Parameters {
     Parameters {
         img_size_px: 8192,
         workgroup_size: 16,
-        max_iter: 256,
+        max_iter: 255,
         limits: [-2.2, 0.8, -1.5, 1.5]
     }
 }
 
 
+#[allow(dead_code)]
+fn process_bw(img_size: u32, max_value: u8, data: &[u8]) -> image::GrayImage {
+    let mut imgbuf = image::GrayImage::new(img_size, img_size);
+
+    for y in 0..img_size {
+        for x in 0..img_size {
+            let v = data[(img_size * y + x) as usize] as u8;
+            if v != 0 {
+                let v = 255.0f32 * (v as f32 / max_value as f32);
+                imgbuf.get_pixel_mut(x, y).0[0] = v as u8;
+            }
+        }
+    }
+
+    imgbuf
+}
+
+
+#[allow(dead_code)]
+fn process_col(img_size: u32, max_value: u8, data: &[u8]) -> image::RgbImage {
+    let mut imgbuf = image::RgbImage::new(img_size, img_size);
+
+    let colormap = scarlet::colormap::ListedColorMap::inferno().vals;
+
+    for y in 0..img_size {
+        for x in 0..img_size {
+            let v = data[(img_size * y + x) as usize] as u8;
+            if v != 0 {
+                let v = (255.0f32 * (v as f32 / max_value as f32)) as u8;
+                let rgb = colormap[v as usize];
+                imgbuf.get_pixel_mut(x, y).0 = [
+                    (rgb[0] as f32 * 255.0f32) as u8,
+                    (rgb[1] as f32 * 255.0f32) as u8,
+                    (rgb[2] as f32 * 255.0f32) as u8
+                ]
+            }
+        }
+    }
+
+    imgbuf
+}
+
+
 fn run(params: &Parameters, store_to_file: bool) {
     let start_time = std::time::Instant::now();
-    let steps = pollster::block_on(wgpu::run_wgpu(&params));
+    let data = pollster::block_on(wgpu::run_wgpu(&params));
     tracing::info!("Computing time: {:?}", start_time.elapsed());
 
     if !store_to_file
     { return; }
 
-    let img_size = params.img_size_px as u32;
-    let mut imgbuf = image::GrayImage::new(img_size, img_size);
-
     let start_time = std::time::Instant::now();
-    for y in 0..img_size {
-        for x in 0..img_size {
-            let v = steps[(img_size * y + x) as usize] as u8;
-            if v != 0 {
-                let v = 255.0f32 * (v as f32 / params.max_iter as f32);
-                imgbuf.get_pixel_mut(x, y).0[0] = v as u8;
-            }
-        }
-    }
+    let img_size = params.img_size_px as u32;
+    let imgbuf = process_col(img_size, params.max_iter, data.as_slice());
     tracing::info!("Processing time: {:?}", start_time.elapsed());
 
     let start_time = std::time::Instant::now();
