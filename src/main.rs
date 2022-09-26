@@ -53,7 +53,8 @@ fn process_col(img_size: u32, max_value: u8, data: &[u8]) -> image::RgbImage {
         for x in 0..img_size {
             let v = data[(img_size * y + x) as usize] as u8;
             if v != 0 {
-                let v = (255.0f32 * (v as f32 / max_value as f32)) as u8;
+                let v = (v as f32 / max_value as f32) * 1.5f32 * 255.0f32;
+                let v = v.clamp(0.0f32, 255.0f32);
                 let rgb = colormap[v as usize];
                 imgbuf.get_pixel_mut(x, y).0 = [
                     (rgb[0] as f32 * 255.0f32) as u8,
