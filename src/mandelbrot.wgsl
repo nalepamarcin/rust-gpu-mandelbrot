@@ -65,8 +65,12 @@ fn mandelmsaax16(c: vec2<f32>) -> u32 {
 }
 
 
-fn mandelmsaa(c: vec2<f32>) -> u32 {
-    return mandelmsaax16(c);
+fn mandelproc(c: vec2<f32>) -> u32 {
+    return u32(clamp(
+        f32(mandelmsaax16(c)) / f32({{max_iter}}) * 1.5f * 255.0f,
+        0.0f,
+        255.0f
+    ));
 }
 
 
@@ -74,15 +78,11 @@ fn mandelmsaa(c: vec2<f32>) -> u32 {
 @workgroup_size({{wg_size}}, {{wg_size}})
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var img_x = global_id.x * 4u;
-    var img_y = global_id.y;
+    var img_y_f = mix({{img_min_y}}, {{img_max_y}}, f32(global_id.y) / {{img_size}});
 
     v_pixels[global_id.y * {{row_stride}} + global_id.x] =
-        mandelmsaa(vec2(mix({{img_min_x}}, {{img_max_x}}, f32(img_x)      / {{img_size}}),
-                        mix({{img_min_y}}, {{img_max_y}}, f32(img_y)      / {{img_size}}))) |
-        mandelmsaa(vec2(mix({{img_min_x}}, {{img_max_x}}, f32(img_x + 1u) / {{img_size}}),
-                        mix({{img_min_y}}, {{img_max_y}}, f32(img_y)      / {{img_size}}))) << 8u |
-        mandelmsaa(vec2(mix({{img_min_x}}, {{img_max_x}}, f32(img_x + 2u) / {{img_size}}),
-                        mix({{img_min_y}}, {{img_max_y}}, f32(img_y)      / {{img_size}}))) << 16u |
-        mandelmsaa(vec2(mix({{img_min_x}}, {{img_max_x}}, f32(img_x + 3u) / {{img_size}}),
-                        mix({{img_min_y}}, {{img_max_y}}, f32(img_y)      / {{img_size}}))) << 24u;
+        mandelproc(vec2(mix({{img_min_x}}, {{img_max_x}}, f32(img_x)      / {{img_size}}), img_y_f))        |
+        mandelproc(vec2(mix({{img_min_x}}, {{img_max_x}}, f32(img_x + 1u) / {{img_size}}), img_y_f)) << 8u  |
+        mandelproc(vec2(mix({{img_min_x}}, {{img_max_x}}, f32(img_x + 2u) / {{img_size}}), img_y_f)) << 16u |
+        mandelproc(vec2(mix({{img_min_x}}, {{img_max_x}}, f32(img_x + 3u) / {{img_size}}), img_y_f)) << 24u;
 }
