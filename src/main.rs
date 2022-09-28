@@ -20,7 +20,6 @@ fn get_params() -> Parameters {
     Parameters {
         shader_type: shaders::provider::ShaderType::WGSL,
         img_size_px: 8192,
-        workgroup_size: 16,
         max_iter: 255,
         limits: [-2.2, 0.8, -1.5, 1.5]
     }

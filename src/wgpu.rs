@@ -1,5 +1,7 @@
 use crate::parameters::Parameters;
 
+use wgpu::util::DeviceExt;
+
 
 pub async fn run_wgpu(params: &Parameters) -> Vec<u8> {
     // Instantiates instance of WebGPU
@@ -43,12 +45,19 @@ async fn execute_gpu_inner(
     queue: &wgpu::Queue,
     params: &Parameters
 ) -> Vec<u8> {
-    let (wg_size, shader_module) = crate::shaders::provider::get_shader(&params, &device);
+    let (wg_size, shader_module, mut uniform_buffer) = crate::shaders::provider::get_shader(&params, &device);
 
-    let buffer_size: usize = std::mem::size_of::<u8>() * params.img_size_px as usize * params.img_size_px as usize;
+    if uniform_buffer.len() < 32 { uniform_buffer.resize(32, 0u8); }
+    let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: None,
+        contents: uniform_buffer.as_slice(),
+        usage: wgpu::BufferUsages::UNIFORM,
+    });
+
+    let storage_buffer_size: usize = std::mem::size_of::<u8>() * params.img_size_px as usize * params.img_size_px as usize;
     let storage_buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: None,
-        size: buffer_size as wgpu::BufferAddress,
+        size: storage_buffer_size as wgpu::BufferAddress,
         usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::MAP_READ,
         mapped_at_creation: false,
     });
@@ -64,10 +73,16 @@ async fn execute_gpu_inner(
     let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: None,
         layout: &bind_group_layout,
-        entries: &[wgpu::BindGroupEntry {
-            binding: 0,
-            resource: storage_buffer.as_entire_binding(),
-        }],
+        entries: &[
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: uniform_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: storage_buffer.as_entire_binding(),
+            },
+        ],
     });
 
     let mut encoder =
@@ -76,7 +91,7 @@ async fn execute_gpu_inner(
         let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
         cpass.set_pipeline(&compute_pipeline);
         cpass.set_bind_group(0, &bind_group, &[]);
-        cpass.insert_debug_marker("compute collatz iterations");
+        cpass.insert_debug_marker("compute mandelbrot");
         cpass.dispatch_workgroups(wg_size.0, wg_size.1, wg_size.2);
     }
 
