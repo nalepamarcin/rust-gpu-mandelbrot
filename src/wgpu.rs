@@ -43,28 +43,7 @@ async fn execute_gpu_inner(
     queue: &wgpu::Queue,
     params: &Parameters
 ) -> Vec<u8> {
-    // processing must be divided into full workgroups
-    assert_eq!(params.img_size_px % params.workgroup_size, 0);
-    let no_groups = params.img_size_px / params.workgroup_size;
-    // one shader invocation processes 4 consecutive pixels (due to stupid wgsl limitation of working only on u32)
-    assert_eq!(no_groups % 4, 0);
-
-    let mut shader_src = include_str!("mandelbrot.wgsl").to_string();
-    shader_src = shader_src.replace("{{wg_size}}", &*format!("{}u", params.workgroup_size));
-    shader_src = shader_src.replace("{{max_iter}}", &*format!("{}u", params.max_iter));
-    shader_src = shader_src.replace("{{row_stride}}", &*format!("{}u", params.img_size_px / 4));
-    shader_src = shader_src.replace("{{img_size}}", &*format!("{}.0f", params.img_size_px));
-
-    shader_src = shader_src.replace("{{img_min_x}}", &*format!("{}f", params.limits[0]));
-    shader_src = shader_src.replace("{{img_max_x}}", &*format!("{}f", params.limits[1]));
-    shader_src = shader_src.replace("{{img_min_y}}", &*format!("{}f", params.limits[2]));
-    shader_src = shader_src.replace("{{img_max_y}}", &*format!("{}f", params.limits[3]));
-
-    // Loads the shader from WGSL
-    let cs_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: None,
-        source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::from(shader_src)),
-    });
+    let (wg_size, shader_module) = crate::shaders::provider::get_shader(&params, &device);
 
     let buffer_size: usize = std::mem::size_of::<u8>() * params.img_size_px as usize * params.img_size_px as usize;
     let storage_buffer = device.create_buffer(&wgpu::BufferDescriptor {
@@ -77,7 +56,7 @@ async fn execute_gpu_inner(
     let compute_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
         label: None,
         layout: None,
-        module: &cs_module,
+        module: &shader_module,
         entry_point: "main",
     });
 
@@ -98,7 +77,7 @@ async fn execute_gpu_inner(
         cpass.set_pipeline(&compute_pipeline);
         cpass.set_bind_group(0, &bind_group, &[]);
         cpass.insert_debug_marker("compute collatz iterations");
-        cpass.dispatch_workgroups((no_groups / 4) as u32, no_groups as u32, 1); // Number of cells to run, the (x,y,z) size of item being processed
+        cpass.dispatch_workgroups(wg_size.0, wg_size.1, wg_size.2);
     }
 
     queue.submit(Some(encoder.finish()));

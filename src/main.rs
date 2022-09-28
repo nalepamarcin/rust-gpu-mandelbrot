@@ -1,4 +1,5 @@
 mod parameters;
+mod shaders;
 mod wgpu;
 
 use crate::parameters::Parameters;
@@ -17,6 +18,7 @@ pub fn init_logger(log_level: tracing::Level, log_spans: tracing_subscriber::fmt
 
 fn get_params() -> Parameters {
     Parameters {
+        shader_type: shaders::provider::ShaderType::WGSL,
         img_size_px: 8192,
         workgroup_size: 16,
         max_iter: 255,
