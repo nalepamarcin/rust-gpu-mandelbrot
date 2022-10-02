@@ -18,7 +18,7 @@ pub fn init_logger(log_level: tracing::Level, log_spans: tracing_subscriber::fmt
 
 fn get_params() -> Parameters {
     Parameters {
-        shader_type: shaders::provider::ShaderType::WGSL,
+        shader_type: shaders::provider::ShaderType::SPIRV,
         img_size_px: 8192,
         max_iter: 255,
         limits: [-2.2, 0.8, -1.5, 1.5]

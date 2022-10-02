@@ -5,7 +5,7 @@ use wgpu::util::DeviceExt;
 
 pub async fn run_wgpu(params: &Parameters) -> Vec<u8> {
     // Instantiates instance of WebGPU
-    let instance = wgpu::Instance::new(wgpu::Backends::all());
+    let instance = wgpu::Instance::new(wgpu::Backends::VULKAN);
 
     // `request_adapter` instantiates the general connection to the GPU
     let adapter = instance
