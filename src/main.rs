@@ -27,25 +27,15 @@ fn get_params() -> Parameters {
 
 
 fn process_col(img_size: u32, data: &[u8]) -> image::RgbImage {
-    let mut imgbuf = image::RgbImage::new(img_size, img_size);
-
     let colormap = scarlet::colormap::ListedColorMap::inferno().vals;
+    let colormap: Vec<[u8; 3]> = colormap.iter().map(|[r, g, b]| {
+        [(*r as f32 * 255.0) as u8,
+         (*g as f32 * 255.0) as u8,
+         (*b as f32 * 255.0) as u8]
+    }).collect();
 
-    for y in 0..img_size {
-        for x in 0..img_size {
-            let v = data[(img_size * y + x) as usize] as u8;
-            if v != 0 {
-                let rgb = colormap[v as usize];
-                imgbuf.get_pixel_mut(x, y).0 = [
-                    (rgb[0] as f32 * 255.0f32) as u8,
-                    (rgb[1] as f32 * 255.0f32) as u8,
-                    (rgb[2] as f32 * 255.0f32) as u8
-                ]
-            }
-        }
-    }
-
-    imgbuf
+    let color_image_data: Vec<u8> = data.iter().flat_map(|v| { colormap[*v as usize] }).collect();
+    image::RgbImage::from_raw(img_size, img_size, color_image_data).unwrap()
 }
 
 
