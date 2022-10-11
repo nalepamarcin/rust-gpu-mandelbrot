@@ -1,6 +1,8 @@
+mod backends;
 mod parameters;
 mod shaders;
-mod wgpu;
+
+use crate::parameters::BackendType;
 
 
 pub fn init_logger(log_level: tracing::Level, log_spans: tracing_subscriber::fmt::format::FmtSpan) -> Result<(), Box<dyn std::error::Error>> {
@@ -27,9 +29,17 @@ fn process_col(img_size: u32, data: &[u8]) -> image::RgbImage {
 }
 
 
+fn get_data_from_backend(params: &parameters::Parameters) -> Vec<u8> {
+    match params.backend_type {
+        BackendType::WgpuSpirv | BackendType::WgpuWgsl =>
+            pollster::block_on(backends::wgpu::run_wgpu(&params))
+    }
+}
+
+
 fn run(params: &parameters::Parameters, store_to_file: bool) {
     let start_time = std::time::Instant::now();
-    let data = pollster::block_on(wgpu::run_wgpu(&params));
+    let data = get_data_from_backend(&params);
     tracing::info!("Computing time: {:?}", start_time.elapsed());
 
     if !store_to_file
