@@ -1,9 +1,4 @@
-
-#[allow(dead_code)]
-pub enum ShaderType {
-    SPIRV,
-    WGSL
-}
+use crate::parameters::BackendType;
 
 
 fn build_wgsl(
@@ -87,13 +82,13 @@ fn build_spirv(
 }
 
 
-pub fn get_shader(
+pub fn get_wgpu_shader(
     params: &crate::parameters::Parameters,
     device: &wgpu::Device
 ) -> ((u32, u32, u32), wgpu::ShaderModule, Vec<u8>)
 {
-    match params.shader_type {
-        ShaderType::WGSL => build_wgsl(params, device),
-        ShaderType::SPIRV => build_spirv(params, device)
+    match params.backend_type {
+        BackendType::WgpuWgsl => build_wgsl(params, device),
+        BackendType::WgpuSpirv => build_spirv(params, device)
     }
 }

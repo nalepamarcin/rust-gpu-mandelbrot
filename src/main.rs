@@ -2,8 +2,6 @@ mod parameters;
 mod shaders;
 mod wgpu;
 
-use crate::parameters::Parameters;
-
 
 pub fn init_logger(log_level: tracing::Level, log_spans: tracing_subscriber::fmt::format::FmtSpan) -> Result<(), Box<dyn std::error::Error>> {
     let subscriber = tracing_subscriber::fmt()
@@ -13,16 +11,6 @@ pub fn init_logger(log_level: tracing::Level, log_spans: tracing_subscriber::fmt
         .finish();
     tracing::subscriber::set_global_default(subscriber)?;
     Ok(())
-}
-
-
-fn get_params() -> Parameters {
-    Parameters {
-        shader_type: shaders::provider::ShaderType::SPIRV,
-        img_size_px: 8192,
-        max_iter: 255,
-        limits: [-2.2, 0.8, -1.5, 1.5]
-    }
 }
 
 
@@ -39,7 +27,7 @@ fn process_col(img_size: u32, data: &[u8]) -> image::RgbImage {
 }
 
 
-fn run(params: &Parameters, store_to_file: bool) {
+fn run(params: &parameters::Parameters, store_to_file: bool) {
     let start_time = std::time::Instant::now();
     let data = pollster::block_on(wgpu::run_wgpu(&params));
     tracing::info!("Computing time: {:?}", start_time.elapsed());
@@ -63,5 +51,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 tracing_subscriber::fmt::format::FmtSpan::ENTER |
                     tracing_subscriber::fmt::format::FmtSpan::CLOSE
     )?;
-    Ok(run(&get_params(), true))
+    let params = parameters::get_params();
+    Ok(run(&params, true))
 }

@@ -45,7 +45,7 @@ async fn execute_gpu_inner(
     queue: &wgpu::Queue,
     params: &Parameters
 ) -> Vec<u8> {
-    let (wg_size, shader_module, mut uniform_buffer) = crate::shaders::provider::get_shader(&params, &device);
+    let (wg_size, shader_module, mut uniform_buffer) = crate::shaders::provider::get_wgpu_shader(&params, &device);
 
     if uniform_buffer.len() < 32 { uniform_buffer.resize(32, 0u8); }
     let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
