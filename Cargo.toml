@@ -8,9 +8,13 @@ edition = "2021"
 [dependencies]
 clap = { version = "4.0", features = ["derive"] }
 futures = "0.3"
+glutin = "0.29"
 image = "0.24"
 pollster = "0.2"
 scarlet = "1.1"
 tracing = "0.1"
 tracing-subscriber = "0.3"
 wgpu = { version = "0.13", features = ["spirv"] }
+
+[build-dependencies]
+gl_generator = "0.14"

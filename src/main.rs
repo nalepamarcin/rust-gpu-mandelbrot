@@ -1,4 +1,7 @@
 mod backends;
+mod gl {
+    include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+}
 mod parameters;
 mod shaders;
 
@@ -31,6 +34,8 @@ fn process_col(img_size: u32, data: &[u8]) -> image::RgbImage {
 
 fn get_data_from_backend(params: &parameters::Parameters) -> Vec<u8> {
     match params.backend_type {
+        BackendType::OpenglSpirv =>
+            unsafe { backends::opengl::run_opengl(&params) },
         BackendType::WgpuSpirv | BackendType::WgpuWgsl =>
             pollster::block_on(backends::wgpu::run_wgpu(&params))
     }

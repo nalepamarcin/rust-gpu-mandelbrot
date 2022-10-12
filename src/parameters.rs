@@ -3,6 +3,7 @@ use clap::Parser;
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, clap::ValueEnum)]
 pub enum BackendType {
+    OpenglSpirv,
     WgpuSpirv,
     WgpuWgsl
 }
