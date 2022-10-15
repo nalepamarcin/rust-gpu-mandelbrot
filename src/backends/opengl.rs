@@ -143,7 +143,9 @@ unsafe fn compile_program() -> GLuint {
 }
 
 
-pub unsafe fn run_opengl(params: &Parameters) -> Vec<u8> {
+pub unsafe fn run_opengl(params: &Parameters) -> crate::result::ComputeResult {
+    let start_time = std::time::Instant::now();
+
     let el = glutin::event_loop::EventLoop::new();
     let ctx = glutin::ContextBuilder::new()
         .with_gl(glutin::GlRequest::Specific(
@@ -203,6 +205,8 @@ pub unsafe fn run_opengl(params: &Parameters) -> Vec<u8> {
     gl::UseProgram(program);
     verify_error();
 
+    let init_time = start_time.elapsed();
+
     gl::DispatchCompute(wgsize.0, wgsize.1, wgsize.2);
     verify_error();
 
@@ -220,6 +224,8 @@ pub unsafe fn run_opengl(params: &Parameters) -> Vec<u8> {
         _ => panic!("Unknown failure")
     };
 
+    let computation_time = start_time.elapsed() - init_time;
+
     let storage_ptr = gl::MapNamedBuffer(storage_buffer, gl::READ_ONLY);
     verify_error();
 
@@ -233,5 +239,10 @@ pub unsafe fn run_opengl(params: &Parameters) -> Vec<u8> {
     gl::DeleteBuffers(1, &uniform_buffer as *const GLuint);
     gl::DeleteProgram(program);
 
-    return data;
+    return crate::result::ComputeResult {
+        data,
+        initialization_time: init_time,
+        computation_time,
+        data_fetch_time: start_time.elapsed() - computation_time - init_time
+    };
 }

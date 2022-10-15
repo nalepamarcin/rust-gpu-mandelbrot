@@ -3,7 +3,9 @@ use crate::parameters::Parameters;
 use wgpu::util::DeviceExt;
 
 
-pub async fn run_wgpu(params: &Parameters) -> Vec<u8> {
+pub async fn run_wgpu(params: &Parameters) -> crate::result::ComputeResult {
+    let start_time = std::time::Instant::now();
+
     // Instantiates instance of WebGPU
     let instance = wgpu::Instance::new(wgpu::Backends::VULKAN);
 
@@ -36,15 +38,16 @@ pub async fn run_wgpu(params: &Parameters) -> Vec<u8> {
 
     tracing::info!("Selected device: {:?}", adapter.get_info());
 
-    execute_gpu_inner(&device, &queue, params).await
+    execute_gpu_inner(&device, &queue, params, start_time).await
 }
 
 
 async fn execute_gpu_inner(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
-    params: &Parameters
-) -> Vec<u8> {
+    params: &Parameters,
+    start_time: std::time::Instant
+) -> crate::result::ComputeResult {
     let (wg_size, shader_module, mut uniform_buffer) = crate::shaders::provider::get_wgpu_shader(&params, &device);
 
     if uniform_buffer.len() < 32 { uniform_buffer.resize(32, 0u8); }
@@ -95,7 +98,11 @@ async fn execute_gpu_inner(
         cpass.dispatch_workgroups(wg_size.0, wg_size.1, wg_size.2);
     }
 
+    let init_time = start_time.elapsed();
+
     queue.submit(Some(encoder.finish()));
+
+    let computation_time = start_time.elapsed() - init_time;
 
     let buffer_slice = storage_buffer.slice(..);
     let (sender, receiver) = futures::channel::oneshot::channel::<Result<(), wgpu::BufferAsyncError>>();
@@ -104,13 +111,18 @@ async fn execute_gpu_inner(
     device.poll(wgpu::Maintain::Wait);
 
     receiver.await.unwrap().unwrap();
-    let data = buffer_slice.get_mapped_range();
-    let result = data.to_vec();
+    let data_view = buffer_slice.get_mapped_range();
+    let data = data_view.to_vec();
 
     // With the current interface, we have to make sure all mapped views are
     // dropped before we unmap the buffer.
-    drop(data);
+    drop(data_view);
     storage_buffer.unmap();
 
-    result
+    crate::result::ComputeResult {
+        data,
+        initialization_time: init_time,
+        computation_time,
+        data_fetch_time: start_time.elapsed() - computation_time - init_time
+    }
 }
