@@ -1141,6 +1141,7 @@ dependencies = [
  "glutin",
  "image",
  "pollster",
+ "rayon",
  "scarlet",
  "tracing",
  "tracing-subscriber",

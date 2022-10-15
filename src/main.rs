@@ -36,6 +36,12 @@ fn process_col(img_size: u32, data: &[u8]) -> image::RgbImage {
 
 fn get_result_from_backend(params: &parameters::Parameters) -> ComputeResult {
     match params.backend_type {
+        BackendType::CpuLoop =>
+            backends::cpu::run_cpu_loops(&params),
+        BackendType::CpuIter =>
+            backends::cpu::run_cpu_iter(&params),
+        BackendType::CpuParIter =>
+            backends::cpu::run_cpu_par_iter(&params),
         BackendType::OpenglSpirv | BackendType::OpenglSpirvU8 =>
             unsafe { backends::opengl::run_opengl(&params) },
         BackendType::WgpuSpirv | BackendType::WgpuWgsl =>
