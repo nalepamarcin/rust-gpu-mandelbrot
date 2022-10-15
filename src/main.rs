@@ -36,7 +36,7 @@ fn process_col(img_size: u32, data: &[u8]) -> image::RgbImage {
 
 fn get_result_from_backend(params: &parameters::Parameters) -> ComputeResult {
     match params.backend_type {
-        BackendType::OpenglSpirv =>
+        BackendType::OpenglSpirv | BackendType::OpenglSpirvU8 =>
             unsafe { backends::opengl::run_opengl(&params) },
         BackendType::WgpuSpirv | BackendType::WgpuWgsl =>
             pollster::block_on(backends::wgpu::run_wgpu(&params))

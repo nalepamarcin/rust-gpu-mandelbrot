@@ -112,11 +112,15 @@ unsafe fn verify_spirv_extension_support() {
 }
 
 
-unsafe fn compile_program() -> GLuint {
+unsafe fn compile_program(u8_capability: bool) -> GLuint {
     let shader = gl::CreateShader(gl::COMPUTE_SHADER);
     verify_error();
 
-    let shader_binary = include_bytes!("../shaders/mandelbrot.rs.spv");
+    let shader_binary: &[u8] = if u8_capability {
+        include_bytes!("../shaders/mandelbrot.rs.spv")
+    } else {
+        include_bytes!("../shaders/mandelbrot-u32.rs.spv")
+    };
     gl::ShaderBinary(1, &shader as *const GLuint, gl::SHADER_BINARY_FORMAT_SPIR_V_ARB, shader_binary.as_ptr() as *const GLvoid, shader_binary.len() as GLsizei);
     verify_error();
 
@@ -167,10 +171,13 @@ pub unsafe fn run_opengl(params: &Parameters) -> crate::result::ComputeResult {
     verify_spirv_extension_support();
     // verify_spirv_support(); // FIXME: for some reason SHADER_BINARY_FORMATS is empty even tho SPIR_V is accepted...
 
-    let program = compile_program();
+    let (wgsize, uniform_data) = match params.backend_type {
+        crate::parameters::BackendType::OpenglSpirv => crate::shaders::provider::get_spirv_configuration(&params),
+        crate::parameters::BackendType::OpenglSpirvU8 => crate::shaders::provider::get_spirv_configuration_u8(&params),
+        _ => panic!("Invalid backend for OpenGL")
+    };
 
-    let (wgsize, uniform_data) = crate::shaders::provider::get_spirv_configuration(&params);
-
+    let program = compile_program(params.backend_type == crate::parameters::BackendType::OpenglSpirvU8);
 
     let mut uniform_buffer: GLuint = 0;
     gl::CreateBuffers(1, &mut uniform_buffer as *mut GLuint);
